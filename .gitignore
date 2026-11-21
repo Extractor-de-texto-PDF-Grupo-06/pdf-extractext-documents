@@ -221,3 +221,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Configuración local del editor
+.vscode/
+*.code-workspace

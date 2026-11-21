@@ -1,0 +1,17 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.env
+.DS_Store
+*.pdf
+.test-extractor
+output
+nginx
+extractor
+**/.venv
+**/venv
+**/__pycache__
