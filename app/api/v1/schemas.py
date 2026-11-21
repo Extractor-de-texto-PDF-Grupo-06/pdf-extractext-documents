@@ -9,6 +9,29 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# SHA-256 en hexadecimal: lo calcula web antes de pedir el alta.
+CHECKSUM_PATTERN = r"^[0-9a-f]{64}$"
+
+
+class DocumentCreate(BaseModel):
+    """
+    Alta de un documento ya extraído.
+
+    ``created_at`` no se acepta: la fecha la pone el servidor al guardar.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    filename: str = Field(min_length=1, max_length=255, description="Nombre del PDF subido.")
+    checksum: str = Field(pattern=CHECKSUM_PATTERN, description="SHA-256 del PDF en hexadecimal.")
+    text: str = Field(description="Texto extraído, en Markdown.")
+    page_count: int = Field(ge=1, description="Cantidad de páginas del PDF.")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Metadatos declarados por el PDF (autor, título, fechas).",
+    )
+
+
 class DocumentUpdate(BaseModel):
     """
     Campos modificables de un documento (actualización parcial).

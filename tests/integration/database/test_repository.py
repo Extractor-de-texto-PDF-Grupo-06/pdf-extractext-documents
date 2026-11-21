@@ -1,10 +1,23 @@
+"""
+Repositorio contra un MongoDB real: ``uv run pytest -m integration``.
+
+Usa la base MONGODB_TEST_DB_NAME y se saltea si MongoDB no responde.
+"""
 import pytest
 import pytest_asyncio
 from pymongo.errors import DuplicateKeyError
 
 from app.core.config import settings
 from app.infrastructure.database.repository import DocumentRepository
-from app.infrastructure.database.connection import connect_to_mongo, close_mongo_connection, get_database
+from app.infrastructure.database.connection import (
+    DatabaseConnectionError,
+    close_mongo_connection,
+    connect_to_mongo,
+    get_database,
+    ping_database,
+)
+
+pytestmark = pytest.mark.integration
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
 async def setup_database():
@@ -20,7 +33,10 @@ async def setup_database():
         "los tests borran la colección y destruirían los datos de desarrollo."
     )
 
-    await connect_to_mongo(db_name=settings.MONGODB_TEST_DB_NAME)
+    try:
+        await connect_to_mongo(db_name=settings.MONGODB_TEST_DB_NAME)
+    except DatabaseConnectionError:
+        pytest.skip("MongoDB no responde en MONGODB_URI")
     db = get_database()
     assert db.name == settings.MONGODB_TEST_DB_NAME
 
@@ -176,3 +192,8 @@ async def test_get_all_orders_by_created_at_desc():
     docs = await DocumentRepository.get_all()
 
     assert [d["checksum"] for d in docs] == ["nuevo", "viejo"]
+
+
+@pytest.mark.asyncio
+async def test_ping_answers_true_with_mongodb_up():
+    assert await ping_database() is True
