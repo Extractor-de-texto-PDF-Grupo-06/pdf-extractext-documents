@@ -9,11 +9,15 @@ import sys
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 
-from app.api.v1 import router as v1_router
+from app.api.v1 import router as documents_router
 from app.core.config import settings
-from app.infrastructure.database.connection import connect_to_mongo, close_mongo_connection
+from app.infrastructure.database.connection import (
+    close_mongo_connection,
+    connect_to_mongo,
+    ping_database,
+)
 from app.infrastructure.database.repository import DocumentRepository
 
 # ── Logging ───────────────────────────────────────────────────────
@@ -45,14 +49,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Montar rutas de la API v1 en /api/v1
-app.include_router(v1_router, prefix="/api/v1")
-
 
 @app.get("/health", tags=["Health"])
-def health():
-    """Liveness probe: no toca la base a propósito."""
+async def health():
+    """
+    Responde 200 solo si MongoDB contesta: sin base, documents no puede atender nada.
+    Se declara antes del CRUD para que ``/{doc_id}`` no capture ``/health``.
+    """
+    if not await ping_database():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="MongoDB no responde.",
+        )
     return {"status": "ok"}
+
+
+# El CRUD vive en la raíz: Traefik quita el prefijo /documents antes de reenviar.
+app.include_router(documents_router)
 
 
 # ── Punto de entrada ──────────────────────────────────────────────

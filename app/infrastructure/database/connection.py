@@ -60,6 +60,18 @@ async def connect_to_mongo(db_name: Optional[str] = None):
     db_instance.db = client[target_db]
     logger.info("Conexión a MongoDB establecida.")
 
+async def ping_database() -> bool:
+    """True si MongoDB responde ahora; lo usa el health para decir si se puede atender."""
+    if db_instance.client is None:
+        return False
+    try:
+        await db_instance.client.admin.command("ping")
+    except PyMongoError as exc:
+        logger.warning("MongoDB no responde al ping: %s", exc)
+        return False
+    return True
+
+
 async def close_mongo_connection():
     """Cierra la conexión con MongoDB."""
     if db_instance.client:
