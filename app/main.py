@@ -74,12 +74,8 @@ app.include_router(documents_router)
 def main() -> None:
     """Inicia uvicorn con el puerto de la configuración (factor VII)."""
     logger.info("Iniciando %s en http://localhost:%d", settings.APP_NAME, settings.PORT)
-    uvicorn.run(
-        "app.main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=not settings.is_production,
-    )
+    # Sin recarga automática: en desarrollo, `uvicorn app.main:app --reload`.
+    uvicorn.run(app, host=settings.HOST, port=settings.PORT)
 
 
 if __name__ == "__main__":

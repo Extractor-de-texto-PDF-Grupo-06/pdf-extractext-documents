@@ -32,7 +32,6 @@ class Settings(BaseSettings):
 
     # ── Aplicación ────────────────────────────────────────────────
     APP_NAME: str = "pdf-extractext-documents"
-    APP_ENV: str = "development"  # development | production | testing
     LOG_LEVEL: str = "INFO"       # DEBUG | INFO | WARNING | ERROR | CRITICAL
 
     # ── Servidor (12-Factor VII — Port Binding) ───────────────────
@@ -45,11 +44,6 @@ class Settings(BaseSettings):
     # Base separada para los tests de integración: nunca debe coincidir con
     # MONGODB_DB_NAME, porque la suite borra la colección al empezar y terminar.
     MONGODB_TEST_DB_NAME: str = "pdf_extractext_test"
-
-    @property
-    def is_production(self) -> bool:
-        """True si la app corre en un entorno productivo."""
-        return self.APP_ENV.lower() == "production"
 
 
 # Singleton — importar esta instancia en toda la app

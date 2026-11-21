@@ -2,7 +2,7 @@
 name = "pdf-extractext-documents"
 version = "0.1.0"
 description = "Microservicio documents de pdf-extractext: CRUD de documentos sobre MongoDB"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.110.0",
     "motor>=3.4.0",
