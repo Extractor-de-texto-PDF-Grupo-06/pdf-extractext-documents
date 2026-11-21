@@ -18,7 +18,6 @@ from app.infrastructure.database.connection import (
     connect_to_mongo,
     ping_database,
 )
-from app.infrastructure.database.repository import DocumentRepository
 
 # ── Logging ───────────────────────────────────────────────────────
 # El nivel sale de la configuración (12-Factor III), no hardcodeado.
@@ -32,13 +31,16 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    """
+    Abre la conexión a MongoDB al arrancar y la cierra al apagarse (factor IX).
+
+    Los índices no se crean acá: los crea el proceso de administración
+    ``python -m app.admin.create_indexes``, antes del arranque (factor XII).
+    """
     await connect_to_mongo()
     try:
-        await DocumentRepository.ensure_indexes()
         yield
     finally:
-        # También cerrar MongoDB si falla el índice durante el arranque.
         await close_mongo_connection()
 
 # ── Aplicación FastAPI ────────────────────────────────────────────
