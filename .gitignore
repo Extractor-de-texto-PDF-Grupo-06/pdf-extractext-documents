@@ -221,3 +221,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Propias de pdf-extractext
+*.py[cod]
+pip-wheel-metadata/
+*.py,cover
+.python-version
+celerybeat-schedule
+bin/
+include/
+lib64
+pyvenv.cfg
+.vscode/
+*.code-workspace
+migrations/
+.github/instructions/snyk_rules.instructions.md
+/.test-extractor/
+/output/
