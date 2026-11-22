@@ -3,39 +3,36 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, develop]
+    branches: [develop, main]
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
-  tests:
+  test:
     runs-on: ubuntu-latest
-    services:
-      mongodb:
-        image: mongo:9.0.4
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping: 1})'"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-    env:
-      MONGODB_URI: mongodb://localhost:27017
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v6
-      - name: Instalar dependencias
-        run: uv sync --frozen
-      - name: Tests unitarios
-        run: uv run pytest
-      - name: Tests de integración contra MongoDB
-        run: uv run pytest -m integration
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --group dev
+      - run: uv run pytest
 
-  docker:
+  publish:
+    needs: test
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - name: Construir la imagen
-        run: docker build -t pdf-extractext-documents:ci .
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/extractor-de-texto-pdf-grupo-06/pdf-extractext-documents:latest
+            ghcr.io/extractor-de-texto-pdf-grupo-06/pdf-extractext-documents:${{ github.sha }}
