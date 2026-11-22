@@ -19,6 +19,25 @@ class DatabaseConnectionError(RuntimeError):
     """Se lanza cuando no se puede establecer conexión con MongoDB."""
 
 
+def mask_uri(uri: str) -> str:
+    """
+    Devuelve la URI de MongoDB con la contraseña reemplazada por ``***``.
+
+    Lo que se loguea termina en los logs de Docker: la URI se escribe siempre así.
+    Una URI sin contraseña se devuelve igual.
+    """
+    scheme, separator, rest = uri.partition("://")
+    if not separator:
+        return uri
+    # Las credenciales están antes del primer "/" (o de los parámetros, si no hay base).
+    authority, slash, tail = rest.partition("/")
+    credentials, at, hosts = authority.rpartition("@")
+    if not at or ":" not in credentials:
+        return uri
+    user = credentials.split(":", 1)[0]
+    return f"{scheme}://{user}:***@{hosts}{slash}{tail}"
+
+
 class Database:
     client: AsyncIOMotorClient = None
     db: AsyncIOMotorDatabase = None
@@ -38,7 +57,8 @@ async def connect_to_mongo(db_name: Optional[str] = None):
             en el arranque en lugar de dejar la app viva con una BD inutilizable.
     """
     target_db = db_name or settings.MONGODB_DB_NAME
-    logger.info("Conectando a MongoDB en %s (base: %s)...", settings.MONGODB_URI, target_db)
+    safe_uri = mask_uri(settings.MONGODB_URI)
+    logger.info("Conectando a MongoDB en %s (base: %s)...", safe_uri, target_db)
 
     client = AsyncIOMotorClient(
         settings.MONGODB_URI,
@@ -50,9 +70,9 @@ async def connect_to_mongo(db_name: Optional[str] = None):
         await client.admin.command("ping")
     except PyMongoError as exc:
         client.close()
-        logger.error("No se pudo conectar a MongoDB en %s: %s", settings.MONGODB_URI, exc)
+        logger.error("No se pudo conectar a MongoDB en %s: %s", safe_uri, exc)
         raise DatabaseConnectionError(
-            f"No se pudo conectar a MongoDB en {settings.MONGODB_URI}. "
+            f"No se pudo conectar a MongoDB en {safe_uri}. "
             "Verificá que el servicio esté levantado (docker compose up)."
         ) from exc
 
