@@ -2,15 +2,16 @@
 Contrato HTTP del microservicio documents (ver SPEC.md de pdf-extractext-orchestration).
 
 Las rutas viven en la raíz: Traefik quita el prefijo /documents antes de reenviar.
-El repositorio se reemplaza por un doble; la base real la cubren los tests de integración.
+El almacén de documentos se reemplaza por un doble a través de la inyección de dependencias
+de FastAPI; la base real la cubren los tests de integración.
 """
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from pymongo.errors import DuplicateKeyError
-
+from app.api.v1.dependencies import get_document_store
+from app.application.errors import DuplicateChecksum
 from app.main import app
 
 client = TestClient(app)
@@ -33,8 +34,10 @@ def _new_document(**overrides):
 
 @pytest.fixture
 def repo():
-    with patch("app.api.v1.endpoints.documents.DocumentRepository") as mock:
-        yield mock
+    store = MagicMock()
+    app.dependency_overrides[get_document_store] = lambda: store
+    yield store
+    app.dependency_overrides.clear()
 
 
 # ── Alta ─────────────────────────────────────────────────────────
@@ -74,7 +77,7 @@ def test_create_without_metadata_saves_an_empty_dict(repo):
 
 
 def test_create_with_a_repeated_checksum_returns_409(repo):
-    repo.create = AsyncMock(side_effect=DuplicateKeyError("E11000 duplicate key"))
+    repo.create = AsyncMock(side_effect=DuplicateChecksum())
 
     response = client.post("/", json=_new_document())
 
