@@ -5,9 +5,9 @@ Usa la base MONGODB_TEST_DB_NAME y se saltea si MongoDB no responde.
 """
 import pytest
 import pytest_asyncio
-from pymongo.errors import DuplicateKeyError
 
 from app.core.config import settings
+from app.application.errors import DuplicateChecksum
 from app.infrastructure.database.repository import DocumentRepository
 from app.infrastructure.database.connection import (
     DatabaseConnectionError,
@@ -111,7 +111,7 @@ async def test_duplicate_checksum_is_rejected_by_unique_index():
     data = {"text": "Original", "checksum": "checksum-repetido", "page_count": 1}
     await DocumentRepository.create(data)
 
-    with pytest.raises(DuplicateKeyError):
+    with pytest.raises(DuplicateChecksum):
         await DocumentRepository.create(
             {"text": "Copia", "checksum": "checksum-repetido", "page_count": 1}
         )

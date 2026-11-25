@@ -6,8 +6,9 @@ from typing import List, Optional
 
 from bson import ObjectId
 from pymongo import DESCENDING
-from pymongo.errors import PyMongoError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
+from app.application.errors import DuplicateChecksum
 from app.infrastructure.database.connection import get_database
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,8 @@ IMMUTABLE_FIELDS = ("_id", "id", "checksum")
 LIST_PROJECTION = {"text": 0}
 
 class DocumentRepository:
+    """Implementa el puerto ``DocumentStore`` sobre MongoDB."""
+
 
     @classmethod
     def _collection(cls):
@@ -72,7 +75,11 @@ class DocumentRepository:
     @classmethod
     async def create(cls, data: dict) -> dict:
         """Crea un nuevo documento en la base de datos."""
-        result = await cls._collection().insert_one(data)
+        try:
+            result = await cls._collection().insert_one(data)
+        except DuplicateKeyError as exc:
+            # El índice único sobre checksum: hacia afuera es un error del núcleo.
+            raise DuplicateChecksum() from exc
         # insert_one ya confirma la escritura. Evitar volver a traer todo el
         # texto desde MongoDB sólo para devolver el documento recién insertado.
         saved = {key: value for key, value in data.items() if key != "_id"}
