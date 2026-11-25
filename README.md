@@ -81,15 +81,21 @@ el usuario sin privilegios 10001 y declara un `HEALTHCHECK` sobre `/health`.
 
 ```
 app/
-├── api/v1/            presentación: rutas (endpoints/documents.py) y esquemas
-├── infrastructure/    datos: conexión y repositorio de MongoDB
+├── application/       núcleo: el puerto DocumentStore y DuplicateChecksum (solo biblioteca estándar)
+├── api/v1/            presentación: rutas, esquemas y la inyección del almacén
+├── infrastructure/    MongoDB: conexión y DocumentRepository, que implementa DocumentStore
 ├── admin/             procesos de administración (create_indexes)
 ├── core/config/       Settings (variables de entorno)
-└── main.py            arma la aplicación y el /health
+└── main.py            raíz de composición: une la API con el repositorio y expone /health
 tests/
-├── unit/              contrato HTTP, health y proceso de índices
+├── unit/              contrato HTTP, health, índices, errores del repositorio y arquitectura
 └── integration/       repositorio contra MongoDB real
 ```
+
+**Regla de dependencias:** las dependencias apuntan hacia `application`. La API pide un
+`DocumentStore` y recibe la implementación por inyección, así que no conoce MongoDB; el
+repositorio traduce `DuplicateKeyError` de pymongo a `DuplicateChecksum`. Solo `main.py`
+conoce todas las capas. `tests/unit/test_architecture.py` falla si alguien rompe la regla.
 
 ## Seguridad de la imagen
 

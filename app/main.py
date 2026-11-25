@@ -1,6 +1,9 @@
 """
 pdf-extractext-documents — Servidor FastAPI.
 
+Es la raíz de composición: el único módulo que conoce todas las capas. Une la API con
+la implementación de MongoDB del puerto ``DocumentStore``.
+
 Levantar con:
     python -m app.main
 """
@@ -18,6 +21,7 @@ from app.infrastructure.database.connection import (
     connect_to_mongo,
     ping_database,
 )
+from app.infrastructure.database.repository import DocumentRepository
 
 # ── Logging ───────────────────────────────────────────────────────
 # El nivel sale de la configuración (12-Factor III), no hardcodeado.
@@ -50,6 +54,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+# Los endpoints piden un DocumentStore; acá se decide cuál (ver app.api.v1.dependencies).
+app.state.document_store = DocumentRepository
 
 
 @app.get("/health", tags=["Health"])
