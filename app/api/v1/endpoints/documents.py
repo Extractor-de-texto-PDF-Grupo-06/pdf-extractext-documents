@@ -7,11 +7,12 @@ así el servicio no sabe en qué ruta pública está publicado.
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
-from pymongo.errors import DuplicateKeyError
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
+from app.api.v1.dependencies import get_document_store
 from app.api.v1.schemas import CHECKSUM_PATTERN, DocumentCreate, DocumentUpdate
-from app.infrastructure.database.repository import DocumentRepository
+from app.application.errors import DuplicateChecksum
+from app.application.ports import DocumentStore
 
 router = APIRouter()
 
@@ -24,7 +25,9 @@ _NOT_FOUND = "Documento no encontrado."
     summary="Guardar un documento extraído",
     response_description="El documento guardado, con su ID.",
 )
-async def create_document(document: DocumentCreate):
+async def create_document(
+    document: DocumentCreate, store: DocumentStore = Depends(get_document_store)
+):
     """
     Guarda un documento. El índice único sobre ``checksum`` es la garantía contra
     duplicados, también cuando dos altas del mismo PDF llegan a la vez.
@@ -32,8 +35,8 @@ async def create_document(document: DocumentCreate):
     data = document.model_dump()
     data["created_at"] = datetime.now(timezone.utc)
     try:
-        return await DocumentRepository.create(data)
-    except DuplicateKeyError as exc:
+        return await store.create(data)
+    except DuplicateChecksum as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Ya existe un documento con ese checksum.",
@@ -53,12 +56,13 @@ async def list_documents(
         pattern=CHECKSUM_PATTERN,
         description="Si se indica, devuelve solo el documento con ese checksum (0 o 1).",
     ),
+    store: DocumentStore = Depends(get_document_store),
 ):
     """Lista paginada, o búsqueda exacta por checksum para detectar duplicados."""
     if checksum is not None:
-        doc = await DocumentRepository.get_by_checksum(checksum)
+        doc = await store.get_by_checksum(checksum)
         return {"data": [doc] if doc else []}
-    docs = await DocumentRepository.get_all(skip=skip, limit=limit)
+    docs = await store.get_all(skip=skip, limit=limit)
     return {"data": docs}
 
 
@@ -67,8 +71,8 @@ async def list_documents(
     summary="Obtener un documento por ID",
     response_description="El documento completo, con su texto.",
 )
-async def get_document(doc_id: str):
-    doc = await DocumentRepository.get_by_id(doc_id)
+async def get_document(doc_id: str, store: DocumentStore = Depends(get_document_store)):
+    doc = await store.get_by_id(doc_id)
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
     return doc
@@ -79,7 +83,9 @@ async def get_document(doc_id: str):
     summary="Actualizar un documento",
     response_description="El documento actualizado.",
 )
-async def update_document(doc_id: str, data: DocumentUpdate):
+async def update_document(
+    doc_id: str, data: DocumentUpdate, store: DocumentStore = Depends(get_document_store)
+):
     """Actualización parcial: solo ``filename``, ``text`` y ``metadata`` son editables."""
     changes = data.to_changes()
     if not changes:
@@ -87,7 +93,7 @@ async def update_document(doc_id: str, data: DocumentUpdate):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Debe enviarse al menos un campo para actualizar.",
         )
-    doc = await DocumentRepository.update(doc_id, changes)
+    doc = await store.update(doc_id, changes)
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
     return doc
@@ -98,7 +104,7 @@ async def update_document(doc_id: str, data: DocumentUpdate):
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Eliminar un documento",
 )
-async def delete_document(doc_id: str):
-    if not await DocumentRepository.delete(doc_id):
+async def delete_document(doc_id: str, store: DocumentStore = Depends(get_document_store)):
+    if not await store.delete(doc_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
